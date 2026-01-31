@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>情緒辨識與身心狀態覺察系統</title>
+    <title>情緒辨識與覺察分析系統</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -12,90 +12,133 @@
         .is-flipped { transform: rotateY(180deg); }
         .card-front, .card-back { backface-visibility: hidden; position: absolute; width: 100%; height: 100%; border-radius: 1rem; }
         .card-back { transform: rotateY(180deg); }
-        .selected-glow { box-shadow: 0 0 15px 5px rgba(99, 102, 241, 0.5); border: 2px solid #6366f1 !important; }
-        
-        /* 漸層美化 */
-        .bg-zen { background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); }
-        .step-transition-enter-active, .step-transition-leave-active { transition: all 0.4s ease; }
-        .step-transition-enter-from { opacity: 0; transform: translateX(20px); }
-        .step-transition-leave-to { opacity: 0; transform: translateX(-20px); }
+        .selected-glow { box-shadow: 0 0 15px 5px rgba(99, 102, 241, 0.4); border: 2px solid #6366f1 !important; }
+        .fade-enter-active, .fade-leave-active { transition: all 0.4s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(20px); }
+        @media print { .no-print { display: none; } }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800 font-sans">
-    <div id="app" v-cloak class="max-w-4xl mx-auto p-6 md:p-12">
+    <div id="app" v-cloak class="max-w-4xl mx-auto p-4 md:p-10">
         
-        <header class="mb-8 text-center" v-if="step !== 'target'">
-            <button @click="goBack" class="text-indigo-500 text-sm font-bold hover:underline mb-2 inline-block">← 返回上一步</button>
-            <div class="flex justify-center gap-2 mb-4">
-                <div v-for="s in ['target', 'scene', 'game']" :key="s" 
-                     class="w-2 h-2 rounded-full" 
-                     :class="step === s ? 'bg-indigo-600 w-6' : 'bg-slate-300'"></div>
+        <header class="mb-8 text-center no-print" v-if="step !== 'target' && !isWin">
+            <button @click="goBack" class="text-indigo-500 text-sm font-bold hover:underline mb-2">← 返回</button>
+            <div class="flex justify-center gap-2">
+                <div v-for="s in ['target', 'scene', 'game']" :key="s" class="w-2 h-2 rounded-full" :class="step === s ? 'bg-indigo-600 w-6' : 'bg-slate-200'"></div>
             </div>
         </header>
 
-        <transition name="step-transition" mode="out-in">
-            
+        <transition name="fade" mode="out-in">
             <section v-if="step === 'target'" key="target" class="text-center py-10">
-                <h1 class="text-4xl font-black text-slate-800 mb-4">情緒覺察實驗室</h1>
-                <p class="text-slate-500 mb-12">請選擇您的身份，開啟適合您的情境</p>
-                <div class="flex flex-col md:flex-row justify-center gap-8">
-                    <div @click="selectTarget('Student')" class="group cursor-pointer p-10 bg-white rounded-[2.5rem] border-2 border-sky-100 hover:border-sky-500 shadow-xl transition-all hover:-translate-y-2">
-                        <div class="text-6xl mb-6 group-hover:scale-110 transition">🎒</div>
-                        <h3 class="text-2xl font-bold text-sky-600">學生版</h3>
-                        <p class="text-slate-400 mt-2 text-sm">校園生活、家庭與成長</p>
+                <h1 class="text-4xl font-black text-slate-800 mb-2">內在冰山覺察實驗室</h1>
+                <p class="text-slate-500 mb-12 italic">Connecting your heart and body.</p>
+                <div class="flex flex-col md:flex-row justify-center gap-6">
+                    <div @click="selectTarget('Student')" class="group cursor-pointer p-10 bg-white rounded-3xl border-2 border-sky-100 hover:border-sky-500 shadow-xl transition-all hover:-translate-y-1">
+                        <div class="text-6xl mb-4">🎒</div>
+                        <h3 class="text-xl font-bold text-sky-600">學生版</h3>
+                        <p class="text-slate-400 text-xs">探索學校與家庭生活</p>
                     </div>
-                    <div @click="selectTarget('Adult')" class="group cursor-pointer p-10 bg-white rounded-[2.5rem] border-2 border-indigo-100 hover:border-indigo-500 shadow-xl transition-all hover:-translate-y-2">
-                        <div class="text-6xl mb-6 group-hover:scale-110 transition">💼</div>
-                        <h3 class="text-2xl font-bold text-indigo-600">成人版</h3>
-                        <p class="text-slate-400 mt-2 text-sm">職場壓力、家庭與社交</p>
+                    <div @click="selectTarget('Adult')" class="group cursor-pointer p-10 bg-white rounded-3xl border-2 border-indigo-100 hover:border-indigo-500 shadow-xl transition-all hover:-translate-y-1">
+                        <div class="text-6xl mb-4">💼</div>
+                        <h3 class="text-xl font-bold text-indigo-600">成人版</h3>
+                        <p class="text-slate-400 text-xs">探索職場與親密關係</p>
                     </div>
                 </div>
             </section>
 
             <section v-else-if="step === 'scene'" key="scene" class="text-center">
-                <h2 class="text-3xl font-black mb-10 italic">在什麼「場景」下發生的？</h2>
+                <h2 class="text-3xl font-black mb-10">目前的「生活焦點」是？</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div v-for="scene in currentSceneOptions" :key="scene.id" 
-                         @click="selectScene(scene.id)"
-                         class="p-8 bg-white rounded-3xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 shadow-sm cursor-pointer transition">
-                        <span class="text-4xl block mb-3">{{ scene.icon }}</span>
-                        <h3 class="text-xl font-bold">{{ scene.label }}</h3>
-                        <p class="text-slate-400 text-sm mt-1">{{ scene.desc }}</p>
+                    <div v-for="s in currentSceneOptions" :key="s.id" @click="selectScene(s.id)" class="p-8 bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer shadow-sm transition">
+                        <span class="text-4xl block mb-3">{{ s.icon }}</span>
+                        <h3 class="text-xl font-bold">{{ s.label }}</h3>
+                        <p class="text-slate-400 text-sm mt-1">{{ s.desc }}</p>
                     </div>
                 </div>
             </section>
 
-            <section v-else-if="step === 'game'" key="game">
-                <div class="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+            <section v-else-if="step === 'game' && !isWin" key="game">
+                <div class="flex justify-between items-end mb-8">
                     <div>
-                        <h2 class="text-2xl font-black text-slate-800">辨識「情緒」與「身心狀態」</h2>
-                        <p class="text-slate-500 text-sm">請將心理的感覺，與身體的反應配對起來</p>
+                        <h2 class="text-2xl font-black text-slate-800">{{ currentSceneLabel }} 探索中</h2>
+                        <p class="text-slate-500 text-sm">點擊卡片，找出情緒與身心反應的連結</p>
                     </div>
-                    <div class="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl shadow-sm border text-sm">
-                        <span class="font-bold text-slate-600">🧘 全開覺察模式</span>
-                        <button @click="toggleZen" :class="isZenMode ? 'bg-green-500' : 'bg-slate-300'" class="w-10 h-5 rounded-full relative transition">
-                            <span :class="isZenMode ? 'translate-x-5' : 'translate-x-1'" class="absolute top-0.5 left-0 w-4 h-4 bg-white rounded-full transition shadow"></span>
-                        </button>
+                    <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border text-xs shadow-sm no-print">
+                        <span class="font-bold text-slate-500">全開模式</span>
+                        <button @click="toggleZen" :class="isZenMode ? 'bg-emerald-500' : 'bg-slate-300'" class="w-9 h-5 rounded-full relative transition"><span :class="isZenMode ? 'translate-x-4' : 'translate-x-0.5'" class="absolute top-0.5 left-0 w-4 h-4 bg-white rounded-full transition shadow"></span></button>
                     </div>
                 </div>
 
-                <div v-if="loading" class="text-center py-20 text-slate-400">正在調用大腦情境資料...</div>
+                <div v-if="loading" class="text-center py-20 animate-pulse text-slate-400">正在準備您的覺察工具...</div>
 
                 <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div v-for="(card, i) in gameCards" :key="i" class="relative h-44" @click="handleFlip(card)">
-                        <div class="card-inner w-full h-full relative" 
-                             :class="[(card.isFlipped || card.isMatched) ? 'is-flipped' : '', flippedCards.includes(card) ? 'selected-glow' : 'shadow-md']">
-                            
-                            <div class="card-front bg-slate-200 flex items-center justify-center text-3xl font-serif text-slate-400">?</div>
-                            
-                            <div class="card-back p-4 border-2 flex flex-col items-center justify-center text-center bg-white overflow-hidden" 
-                                 :class="card.isMatched ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100'">
+                        <div class="card-inner w-full h-full relative" :class="[(card.isFlipped || card.isMatched) ? 'is-flipped' : '', flippedCards.includes(card) ? 'selected-glow' : 'shadow-md']">
+                            <div class="card-front bg-slate-300 flex items-center justify-center text-3xl font-serif text-white">?</div>
+                            <div class="card-back p-4 border-2 flex flex-col items-center justify-center text-center bg-white overflow-hidden" :class="card.isMatched ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100'">
                                 <div class="absolute top-0 left-0 w-full h-1" :class="card.Type === '情緒' ? 'bg-indigo-400' : 'bg-amber-400'"></div>
-                                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full mb-2" :class="card.Type === '情緒' ? 'bg-indigo-100 text-indigo-600' : 'bg-amber-100 text-amber-600'">{{ card.Type }}</span>
-                                <p class="text-[10px] text-slate-400 mb-1 leading-tight">{{ card.SubCategory }}</p>
+                                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full mb-1" :class="card.Type === '情緒' ? 'bg-indigo-50 text-indigo-500' : 'bg-amber-50 text-amber-600'">{{ card.Type }}</span>
+                                <p class="text-[10px] text-slate-400 mb-1 leading-tight line-clamp-2">{{ card.SubCategory }}</p>
                                 <p class="text-sm font-bold text-slate-800">{{ card.Content }}</p>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <section v-else-if="isWin" key="report" class="bg-white rounded-[2rem] shadow-2xl border border-indigo-50 overflow-hidden">
+                <div class="bg-indigo-600 p-8 text-white text-center">
+                    <h2 class="text-3xl font-black mb-2">內在覺察分析報表</h2>
+                    <p class="text-indigo-100 opacity-80">您的身心連結旅程總結</p>
+                </div>
+                
+                <div class="p-8">
+                    <div class="grid grid-cols-3 gap-4 mb-8 text-center">
+                        <div class="p-4 bg-slate-50 rounded-2xl">
+                            <div class="text-xs text-slate-400 font-bold uppercase mb-1">場景</div>
+                            <div class="font-bold text-indigo-600">{{ currentSceneLabel }}</div>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-2xl">
+                            <div class="text-xs text-slate-400 font-bold uppercase mb-1">對象</div>
+                            <div class="font-bold text-indigo-600">{{ currentTarget === 'Student' ? '學生' : '成人' }}</div>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-2xl">
+                            <div class="text-xs text-slate-400 font-bold uppercase mb-1">覺察數</div>
+                            <div class="font-bold text-indigo-600">{{ sessionLogs.length }} 組</div>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-1.5 h-6 bg-indigo-500 rounded-full"></span> 辨識結果與紀錄
+                    </h3>
+                    
+                    <div class="space-y-6 mb-10">
+                        <div v-for="(log, idx) in sessionLogs" :key="idx" class="border-b border-slate-100 pb-6">
+                            <div class="flex flex-col md:flex-row md:items-center gap-3 mb-3">
+                                <span class="text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-medium">{{ log.event }}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{{ log.emotion }}</span>
+                                    <span class="text-slate-300">↔</span>
+                                    <span class="text-sm font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">{{ log.state }}</span>
+                                </div>
+                            </div>
+                            <div v-if="log.note" class="bg-indigo-50/50 p-4 rounded-xl text-sm text-slate-600 leading-relaxed italic border-l-4 border-indigo-200">
+                                “ {{ log.note }} ”
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 text-slate-100 p-6 rounded-3xl mb-8">
+                        <h4 class="font-bold mb-2 flex items-center gap-2">💡 專家小提醒</h4>
+                        <p class="text-sm text-slate-400 leading-relaxed">
+                            覺察是改變的開始。當你能辨認出身體訊號（如心跳加快）與情緒（如焦慮）的連結時，你就已經從「自動導航」中跳脫出來。
+                            下次當這些身體反應出現時，試著給自己 5 秒鐘的呼吸時間，溫柔地對內在的自己說：「我看見你了。」
+                        </p>
+                    </div>
+
+                    <div class="flex flex-col md:flex-row gap-4 no-print">
+                        <button @click="resetToStart" class="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold transition">重新開始</button>
+                        <button onclick="window.print()" class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg transition">列印/存為PDF</button>
                     </div>
                 </div>
             </section>
@@ -103,40 +146,25 @@
 
         <transition name="fade">
             <div v-if="showInsight" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-6 z-50">
-                <div class="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl overflow-hidden relative">
+                <div class="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative">
                     <div class="absolute top-0 left-0 w-full h-2 bg-indigo-500"></div>
                     <div class="text-center">
-                        <div class="text-sm font-bold text-indigo-500 uppercase tracking-widest mb-2">Insight 洞察</div>
-                        <h3 class="text-xl font-bold text-slate-800 mb-4 italic">"{{ activeInsight }}"</h3>
-                        
-                        <div class="text-left bg-slate-50 p-4 rounded-2xl mb-6">
-                            <label class="block text-xs font-black text-slate-400 uppercase mb-2">自我總結筆記</label>
-                            <textarea v-model="userNote" 
-                                      class="w-full bg-transparent border-none outline-none text-slate-700 placeholder-slate-300 resize-none" 
-                                      rows="3" 
-                                      :placeholder="notePlaceholder"></textarea>
+                        <div class="text-indigo-500 font-bold text-sm mb-2 uppercase tracking-widest">Insight</div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-4 italic leading-relaxed">"{{ activeInsight }}"</h3>
+                        <div class="text-left bg-slate-50 p-5 rounded-2xl mb-6">
+                            <label class="block text-xs font-bold text-slate-400 mb-2 uppercase italic">My Reflection</label>
+                            <textarea v-model="userNote" class="w-full bg-transparent border-none outline-none text-slate-700 resize-none leading-relaxed" rows="4" :placeholder="notePlaceholder"></textarea>
                         </div>
-
-                        <button @click="saveNote" :disabled="isSaving" 
-                                class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg active:scale-95 disabled:bg-slate-300">
-                            {{ isSaving ? '儲存中...' : '儲存覺察並繼續' }}
-                        </button>
+                        <button @click="saveNote" :disabled="isSaving" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl active:scale-95 disabled:bg-slate-300 transition-all">儲存並繼續</button>
                     </div>
                 </div>
             </div>
         </transition>
-
-        <section v-if="isWin" class="text-center py-20 bg-white rounded-[3rem] shadow-xl border-2 border-indigo-50 p-12 mt-10">
-            <div class="text-6xl mb-6">🎯</div>
-            <h2 class="text-3xl font-black text-slate-800 mb-4">探索旅程圓滿</h2>
-            <p class="text-slate-500 mb-10 max-w-sm mx-auto">您今天已經成功連結了 {{ gameCards.length / 2 }} 組身心訊號，這對自我覺察是非常重要的一步。</p>
-            <button @click="resetToStart" class="px-12 py-4 bg-slate-900 text-white rounded-full font-bold hover:bg-black transition-all shadow-xl">返回首頁</button>
-        </section>
     </div>
 
     <script>
-        const { createApp, ref, computed } = Vue;
-        const GAS_URL = '你的_GAS_部署網址'; // <--- 請務必填入你的部署網址
+        const { createApp, ref, computed, watch } = Vue;
+        const GAS_URL = '你的_GAS_網址'; 
 
         createApp({
             setup() {
@@ -150,24 +178,29 @@
                 const showInsight = ref(false);
                 const activeInsight = ref('');
                 const activeCard = ref(null);
+                const matchedPair = ref(null);
                 const userNote = ref('');
                 const isSaving = ref(false);
+                const sessionLogs = ref([]);
 
-                // 場景選單設定
                 const sceneOptions = {
                     Student: [
-                        { id: 'School', label: '學校場景', icon: '🏫', desc: '關於同儕、老師、功課與成績' },
-                        { id: 'Home', label: '家庭場景', icon: '🏠', desc: '關於父母溝通、手足與私人空間' }
+                        { id: 'School', label: '學校生活', icon: '🏫', desc: '關於人際、師生與成績壓力' },
+                        { id: 'Home', label: '家庭關係', icon: '🏠', desc: '關於溝通、手足與私人空間' }
                     ],
                     Adult: [
-                        { id: 'Workplace', label: '職場場景', icon: '🏢', desc: '關於業績、同事相處、主管期待' },
-                        { id: 'Home', label: '家庭場景', icon: '🏡', desc: '關於伴侶關係、親職壓力與家務' }
+                        { id: 'Workplace', label: '職場壓力', icon: '🏢', desc: '關於績效、同事相處與焦慮' },
+                        { id: 'Home', label: '家庭生活', icon: '🏡', desc: '關於伴侶關係、親職與家務' }
                     ]
                 };
 
                 const currentSceneOptions = computed(() => sceneOptions[currentTarget.value] || []);
+                const currentSceneLabel = computed(() => {
+                    const scene = currentSceneOptions.value.find(s => s.id === currentScene.value);
+                    return scene ? scene.label : '';
+                });
                 const isWin = computed(() => gameCards.value.length > 0 && gameCards.value.every(c => c.isMatched));
-                const notePlaceholder = computed(() => currentTarget.value === 'Student' ? '剛才的描述讓你想到了哪件事？' : '這個情境中，你觀察到自己有哪些慣性反應？');
+                const notePlaceholder = computed(() => currentTarget.value === 'Student' ? '這讓你想到了生活中的哪件事？' : '在這個情境中，你觀察到自己有哪些慣性？');
 
                 const selectTarget = (t) => { currentTarget.value = t; step.value = 'scene'; };
                 const selectScene = (s) => { currentScene.value = s; step.value = 'game'; loadCards(); };
@@ -178,8 +211,6 @@
                     try {
                         const res = await fetch(`${GAS_URL}?target=${currentTarget.value}&scene=${currentScene.value}`);
                         const data = await res.json();
-                        
-                        // 隨機抽 4 對的情緒辨識
                         const emoCards = data.filter(c => c.Type === '情緒').sort(() => Math.random() - 0.5).slice(0, 4);
                         const pairs = [];
                         emoCards.forEach(e => {
@@ -189,13 +220,12 @@
                                 pairs.push({...e, ...base}, {...state, ...base});
                             }
                         });
-                        // Fisher-Yates Shuffle
                         for (let i = pairs.length - 1; i > 0; i--) {
                             const j = Math.floor(Math.random() * (i + 1));
                             [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
                         }
                         gameCards.value = pairs;
-                    } catch (e) { alert('連線失敗，請檢查網路或權限'); }
+                    } catch (e) { alert('連線失敗，請檢查網路或 GAS 網址'); }
                     loading.value = false;
                 };
 
@@ -215,7 +245,13 @@
                             setTimeout(() => {
                                 c1.isMatched = c2.isMatched = true;
                                 activeInsight.value = c1.Insight || c2.Insight || "不錯的觀察！";
-                                activeCard.value = c1; showInsight.value = true;
+                                activeCard.value = c1;
+                                matchedPair.value = { 
+                                    emotion: c1.Type === '情緒' ? c1.Content : c2.Content,
+                                    state: c1.Type === '狀態' ? c1.Content : c2.Content,
+                                    event: c1.SubCategory
+                                };
+                                showInsight.value = true;
                                 flippedCards.value = [];
                             }, 500);
                         } else {
@@ -229,13 +265,20 @@
 
                 const saveNote = async () => {
                     isSaving.value = true;
+                    const noteContent = userNote.value;
+                    // 加入本局報表
+                    sessionLogs.value.push({
+                        ...matchedPair.value,
+                        note: noteContent
+                    });
+                    
                     try {
                         await fetch(GAS_URL, {
                             method: 'POST', mode: 'no-cors',
                             body: JSON.stringify({
                                 target: currentTarget.value, scene: currentScene.value,
-                                category: activeCard.value.SubCategory,
-                                content: activeCard.value.Content, note: userNote.value
+                                category: matchedPair.value.event,
+                                content: matchedPair.value.emotion, note: noteContent
                             })
                         });
                     } finally {
@@ -243,9 +286,13 @@
                     }
                 };
 
-                const resetToStart = () => { step.value = 'target'; gameCards.value = []; };
+                const resetToStart = () => { 
+                    step.value = 'target'; 
+                    gameCards.value = []; 
+                    sessionLogs.value = [];
+                };
 
-                return { step, currentTarget, currentScene, currentSceneOptions, selectTarget, selectScene, goBack, loading, gameCards, isZenMode, toggleZen, handleFlip, flippedCards, isWin, showInsight, activeInsight, userNote, isSaving, saveNote, resetToStart, notePlaceholder };
+                return { step, currentTarget, currentScene, currentSceneOptions, currentSceneLabel, selectTarget, selectScene, goBack, loading, gameCards, isZenMode, toggleZen, handleFlip, flippedCards, isWin, showInsight, activeInsight, userNote, isSaving, saveNote, resetToStart, notePlaceholder, sessionLogs };
             }
         }).mount('#app');
     </script>
