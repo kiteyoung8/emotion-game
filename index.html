@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>情緒辨識與覺察分析系統</title>
+    <title>情緒與身心反應辨識系統</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -13,166 +13,129 @@
         .card-front, .card-back { backface-visibility: hidden; position: absolute; width: 100%; height: 100%; border-radius: 1rem; }
         .card-back { transform: rotateY(180deg); }
         .selected-glow { box-shadow: 0 0 15px 5px rgba(99, 102, 241, 0.4); border: 2px solid #6366f1 !important; }
-        .fade-enter-active, .fade-leave-active { transition: all 0.4s ease; }
-        .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(20px); }
-        @media print { .no-print { display: none; } }
+        .fade-move-enter-active, .fade-move-leave-active { transition: all 0.4s ease; }
+        .fade-move-enter-from { opacity: 0; transform: translateY(20px); }
+        .fade-move-leave-to { opacity: 0; transform: translateY(-20px); }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800 font-sans">
     <div id="app" v-cloak class="max-w-4xl mx-auto p-4 md:p-10">
         
-        <header class="mb-8 text-center no-print" v-if="step !== 'target' && !isWin">
-            <button @click="goBack" class="text-indigo-500 text-sm font-bold hover:underline mb-2">← 返回</button>
+        <header class="mb-8 text-center" v-if="step !== 'target' && !isWin">
+            <button @click="goBack" class="text-indigo-500 text-sm font-bold hover:underline mb-2">← 返回上一層</button>
             <div class="flex justify-center gap-2">
-                <div v-for="s in ['target', 'scene', 'game']" :key="s" class="w-2 h-2 rounded-full" :class="step === s ? 'bg-indigo-600 w-6' : 'bg-slate-200'"></div>
+                <div v-for="s in ['target', 'scene', 'event', 'game']" :key="s" 
+                     class="w-2 h-2 rounded-full" 
+                     :class="step === s ? 'bg-indigo-600 w-6' : 'bg-slate-200'"></div>
             </div>
         </header>
 
-        <transition name="fade" mode="out-in">
+        <transition name="fade-move" mode="out-in">
             <section v-if="step === 'target'" key="target" class="text-center py-10">
-                <h1 class="text-4xl font-black text-slate-800 mb-2">內在冰山覺察實驗室</h1>
-                <p class="text-slate-500 mb-12 italic">Connecting your heart and body.</p>
+                <h1 class="text-4xl font-black text-slate-800 mb-2">身心辨識探索營</h1>
+                <p class="text-slate-500 mb-12">第一步：請選擇您的身份</p>
                 <div class="flex flex-col md:flex-row justify-center gap-6">
-                    <div @click="selectTarget('Student')" class="group cursor-pointer p-10 bg-white rounded-3xl border-2 border-sky-100 hover:border-sky-500 shadow-xl transition-all hover:-translate-y-1">
+                    <div @click="selectTarget('Student')" class="p-10 bg-white rounded-3xl border-2 border-sky-100 hover:border-sky-500 shadow-xl cursor-pointer transition hover:-translate-y-1">
                         <div class="text-6xl mb-4">🎒</div>
                         <h3 class="text-xl font-bold text-sky-600">學生版</h3>
-                        <p class="text-slate-400 text-xs">探索學校與家庭生活</p>
                     </div>
-                    <div @click="selectTarget('Adult')" class="group cursor-pointer p-10 bg-white rounded-3xl border-2 border-indigo-100 hover:border-indigo-500 shadow-xl transition-all hover:-translate-y-1">
+                    <div @click="selectTarget('Adult')" class="p-10 bg-white rounded-3xl border-2 border-indigo-100 hover:border-indigo-500 shadow-xl cursor-pointer transition hover:-translate-y-1">
                         <div class="text-6xl mb-4">💼</div>
                         <h3 class="text-xl font-bold text-indigo-600">成人版</h3>
-                        <p class="text-slate-400 text-xs">探索職場與親密關係</p>
                     </div>
                 </div>
             </section>
 
             <section v-else-if="step === 'scene'" key="scene" class="text-center">
-                <h2 class="text-3xl font-black mb-10">目前的「生活焦點」是？</h2>
+                <h2 class="text-3xl font-black mb-10 italic">這件事發生在...？</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div v-for="s in currentSceneOptions" :key="s.id" @click="selectScene(s.id)" class="p-8 bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer shadow-sm transition">
+                    <div v-for="s in currentSceneOptions" :key="s.id" @click="selectScene(s.id)" class="p-8 bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 cursor-pointer shadow-sm transition">
                         <span class="text-4xl block mb-3">{{ s.icon }}</span>
                         <h3 class="text-xl font-bold">{{ s.label }}</h3>
-                        <p class="text-slate-400 text-sm mt-1">{{ s.desc }}</p>
                     </div>
+                </div>
+            </section>
+
+            <section v-else-if="step === 'event'" key="event" class="text-center">
+                <h2 class="text-3xl font-black mb-4">哪一個情境讓您最有感？</h2>
+                <p class="text-slate-400 mb-10">請從以下真實發生過的事情中選擇一件</p>
+                
+                <div v-if="loading" class="animate-pulse">正在搜尋情境紀錄...</div>
+                
+                <div v-else class="grid grid-cols-1 gap-4 max-w-lg mx-auto">
+                    <button v-for="evt in availableEvents" :key="evt" @click="selectEvent(evt)"
+                            class="p-5 bg-white border-2 border-slate-100 rounded-2xl hover:border-indigo-500 hover:bg-indigo-50 text-left font-bold text-slate-700 transition shadow-sm flex items-center gap-4">
+                        <span class="bg-indigo-100 text-indigo-600 p-2 rounded-lg">📍</span>
+                        {{ evt }}
+                    </button>
                 </div>
             </section>
 
             <section v-else-if="step === 'game' && !isWin" key="game">
-                <div class="flex justify-between items-end mb-8">
-                    <div>
-                        <h2 class="text-2xl font-black text-slate-800">{{ currentSceneLabel }} 探索中</h2>
-                        <p class="text-slate-500 text-sm">點擊卡片，找出情緒與身心反應的連結</p>
-                    </div>
-                    <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border text-xs shadow-sm no-print">
-                        <span class="font-bold text-slate-500">全開模式</span>
-                        <button @click="toggleZen" :class="isZenMode ? 'bg-emerald-500' : 'bg-slate-300'" class="w-9 h-5 rounded-full relative transition"><span :class="isZenMode ? 'translate-x-4' : 'translate-x-0.5'" class="absolute top-0.5 left-0 w-4 h-4 bg-white rounded-full transition shadow"></span></button>
-                    </div>
+                <div class="text-center mb-8">
+                    <span class="bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1 rounded-full uppercase">當前情境</span>
+                    <h2 class="text-2xl font-black text-slate-800 mt-2">{{ currentEvent }}</h2>
                 </div>
 
-                <div v-if="loading" class="text-center py-20 animate-pulse text-slate-400">正在準備您的覺察工具...</div>
-
-                <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div v-for="(card, i) in gameCards" :key="i" class="relative h-44" @click="handleFlip(card)">
                         <div class="card-inner w-full h-full relative" :class="[(card.isFlipped || card.isMatched) ? 'is-flipped' : '', flippedCards.includes(card) ? 'selected-glow' : 'shadow-md']">
                             <div class="card-front bg-slate-300 flex items-center justify-center text-3xl font-serif text-white">?</div>
-                            <div class="card-back p-4 border-2 flex flex-col items-center justify-center text-center bg-white overflow-hidden" :class="card.isMatched ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100'">
-                                <div class="absolute top-0 left-0 w-full h-1" :class="card.Type === '情緒' ? 'bg-indigo-400' : 'bg-amber-400'"></div>
-                                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full mb-1" :class="card.Type === '情緒' ? 'bg-indigo-50 text-indigo-500' : 'bg-amber-50 text-amber-600'">{{ card.Type }}</span>
-                                <p class="text-[10px] text-slate-400 mb-1 leading-tight line-clamp-2">{{ card.SubCategory }}</p>
-                                <p class="text-sm font-bold text-slate-800">{{ card.Content }}</p>
+                            <div class="card-back p-4 border-2 flex flex-col items-center justify-center text-center bg-white" :class="card.isMatched ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100'">
+                                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full mb-2" :class="card.Type === '情緒' ? 'bg-indigo-50 text-indigo-500' : 'bg-amber-50 text-amber-600'">{{ card.Type }}辨識</span>
+                                <p class="text-sm font-bold text-slate-800 leading-tight">{{ card.Content }}</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <section v-else-if="isWin" key="report" class="bg-white rounded-[2rem] shadow-2xl border border-indigo-50 overflow-hidden">
-                <div class="bg-indigo-600 p-8 text-white text-center">
-                    <h2 class="text-3xl font-black mb-2">內在覺察分析報表</h2>
-                    <p class="text-indigo-100 opacity-80">您的身心連結旅程總結</p>
+            <section v-else-if="isWin" key="report" class="bg-white rounded-[2rem] shadow-2xl border p-8">
+                <div class="text-center mb-10">
+                    <div class="text-5xl mb-4">🎉</div>
+                    <h2 class="text-3xl font-black">身心覺察小報表</h2>
                 </div>
                 
-                <div class="p-8">
-                    <div class="grid grid-cols-3 gap-4 mb-8 text-center">
-                        <div class="p-4 bg-slate-50 rounded-2xl">
-                            <div class="text-xs text-slate-400 font-bold uppercase mb-1">場景</div>
-                            <div class="font-bold text-indigo-600">{{ currentSceneLabel }}</div>
+                <div class="space-y-6">
+                    <div v-for="(log, idx) in sessionLogs" :key="idx" class="bg-slate-50 p-6 rounded-2xl border-l-4 border-indigo-500">
+                        <div class="text-xs font-bold text-slate-400 mb-2">事件：{{ log.event }}</div>
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="bg-indigo-600 text-white px-3 py-1 rounded-lg font-bold">{{ log.emotion }}</span>
+                            <span class="text-slate-300">導致</span>
+                            <span class="bg-amber-500 text-white px-3 py-1 rounded-lg font-bold">{{ log.state }}</span>
                         </div>
-                        <div class="p-4 bg-slate-50 rounded-2xl">
-                            <div class="text-xs text-slate-400 font-bold uppercase mb-1">對象</div>
-                            <div class="font-bold text-indigo-600">{{ currentTarget === 'Student' ? '學生' : '成人' }}</div>
-                        </div>
-                        <div class="p-4 bg-slate-50 rounded-2xl">
-                            <div class="text-xs text-slate-400 font-bold uppercase mb-1">覺察數</div>
-                            <div class="font-bold text-indigo-600">{{ sessionLogs.length }} 組</div>
-                        </div>
-                    </div>
-
-                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <span class="w-1.5 h-6 bg-indigo-500 rounded-full"></span> 辨識結果與紀錄
-                    </h3>
-                    
-                    <div class="space-y-6 mb-10">
-                        <div v-for="(log, idx) in sessionLogs" :key="idx" class="border-b border-slate-100 pb-6">
-                            <div class="flex flex-col md:flex-row md:items-center gap-3 mb-3">
-                                <span class="text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-medium">{{ log.event }}</span>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{{ log.emotion }}</span>
-                                    <span class="text-slate-300">↔</span>
-                                    <span class="text-sm font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">{{ log.state }}</span>
-                                </div>
-                            </div>
-                            <div v-if="log.note" class="bg-indigo-50/50 p-4 rounded-xl text-sm text-slate-600 leading-relaxed italic border-l-4 border-indigo-200">
-                                “ {{ log.note }} ”
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-slate-900 text-slate-100 p-6 rounded-3xl mb-8">
-                        <h4 class="font-bold mb-2 flex items-center gap-2">💡 專家小提醒</h4>
-                        <p class="text-sm text-slate-400 leading-relaxed">
-                            覺察是改變的開始。當你能辨認出身體訊號（如心跳加快）與情緒（如焦慮）的連結時，你就已經從「自動導航」中跳脫出來。
-                            下次當這些身體反應出現時，試著給自己 5 秒鐘的呼吸時間，溫柔地對內在的自己說：「我看見你了。」
-                        </p>
-                    </div>
-
-                    <div class="flex flex-col md:flex-row gap-4 no-print">
-                        <button @click="resetToStart" class="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold transition">重新開始</button>
-                        <button onclick="window.print()" class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg transition">列印/存為PDF</button>
+                        <div class="italic text-slate-600 text-sm">“ {{ log.note || '未留下筆記' }} ”</div>
                     </div>
                 </div>
+                
+                <button @click="resetToStart" class="w-full mt-10 py-4 bg-slate-900 text-white rounded-2xl font-bold">返回首頁</button>
             </section>
         </transition>
 
-        <transition name="fade">
+        <transition name="fade-move">
             <div v-if="showInsight" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-6 z-50">
-                <div class="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative">
-                    <div class="absolute top-0 left-0 w-full h-2 bg-indigo-500"></div>
-                    <div class="text-center">
-                        <div class="text-indigo-500 font-bold text-sm mb-2 uppercase tracking-widest">Insight</div>
-                        <h3 class="text-xl font-bold text-slate-800 mb-4 italic leading-relaxed">"{{ activeInsight }}"</h3>
-                        <div class="text-left bg-slate-50 p-5 rounded-2xl mb-6">
-                            <label class="block text-xs font-bold text-slate-400 mb-2 uppercase italic">My Reflection</label>
-                            <textarea v-model="userNote" class="w-full bg-transparent border-none outline-none text-slate-700 resize-none leading-relaxed" rows="4" :placeholder="notePlaceholder"></textarea>
-                        </div>
-                        <button @click="saveNote" :disabled="isSaving" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-xl active:scale-95 disabled:bg-slate-300 transition-all">儲存並繼續</button>
-                    </div>
+                <div class="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4 italic text-center">"{{ activeInsight }}"</h3>
+                    <textarea v-model="userNote" class="w-full bg-slate-50 rounded-xl p-4 mb-6 outline-none focus:ring-2 ring-indigo-500" rows="3" placeholder="當下那種感覺，讓你想說什麼？"></textarea>
+                    <button @click="saveNote" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold">儲存筆記</button>
                 </div>
             </div>
         </transition>
     </div>
 
     <script>
-        const { createApp, ref, computed, watch } = Vue;
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCIZDMsxzGhduSqzdK8-xGWA9N178aWPsftCwLhP2KrRNB6-QCNo4krtEsASAwj7hKGw/exec'; 
+        const { createApp, ref, computed } = Vue;
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCIZDMsxzGhduSqzdK8-xGWA9N178aWPsftCwLhP2KrRNB6-QCNo4krtEsASAwj7hKGw/exec'; // <--- 請填入你的部署網址
 
         createApp({
             setup() {
                 const step = ref('target');
                 const currentTarget = ref('');
                 const currentScene = ref('');
-                const isZenMode = ref(false);
+                const currentEvent = ref('');
                 const loading = ref(false);
+                const allData = ref([]); // 暫存所有讀取到的卡片
+                const availableEvents = ref([]);
                 const gameCards = ref([]);
                 const flippedCards = ref([]);
                 const showInsight = ref(false);
@@ -180,65 +143,55 @@
                 const activeCard = ref(null);
                 const matchedPair = ref(null);
                 const userNote = ref('');
-                const isSaving = ref(false);
                 const sessionLogs = ref([]);
+                const isWin = computed(() => gameCards.value.length > 0 && gameCards.value.every(c => c.isMatched));
 
                 const sceneOptions = {
                     Student: [
-                        { id: 'School', label: '學校生活', icon: '🏫', desc: '關於人際、師生與成績壓力' },
-                        { id: 'Home', label: '家庭關係', icon: '🏠', desc: '關於溝通、手足與私人空間' }
+                        { id: 'School', label: '學校生活', icon: '🏫' },
+                        { id: 'Home', label: '家庭場景', icon: '🏠' }
                     ],
                     Adult: [
-                        { id: 'Workplace', label: '職場壓力', icon: '🏢', desc: '關於績效、同事相處與焦慮' },
-                        { id: 'Home', label: '家庭生活', icon: '🏡', desc: '關於伴侶關係、親職與家務' }
+                        { id: 'Workplace', label: '職場壓力', icon: '🏢' },
+                        { id: 'Home', label: '家庭場景', icon: '🏡' }
                     ]
                 };
 
                 const currentSceneOptions = computed(() => sceneOptions[currentTarget.value] || []);
-                const currentSceneLabel = computed(() => {
-                    const scene = currentSceneOptions.value.find(s => s.id === currentScene.value);
-                    return scene ? scene.label : '';
-                });
-                const isWin = computed(() => gameCards.value.length > 0 && gameCards.value.every(c => c.isMatched));
-                const notePlaceholder = computed(() => currentTarget.value === 'Student' ? '這讓你想到了生活中的哪件事？' : '在這個情境中，你觀察到自己有哪些慣性？');
 
                 const selectTarget = (t) => { currentTarget.value = t; step.value = 'scene'; };
-                const selectScene = (s) => { currentScene.value = s; step.value = 'game'; loadCards(); };
-                const goBack = () => { if(step.value === 'scene') step.value = 'target'; else if(step.value === 'game') step.value = 'scene'; };
-
-                const loadCards = async () => {
+                
+                const selectScene = async (s) => { 
+                    currentScene.value = s; 
+                    step.value = 'event'; 
                     loading.value = true;
                     try {
                         const res = await fetch(`${GAS_URL}?target=${currentTarget.value}&scene=${currentScene.value}`);
-                        const data = await res.json();
-                        const emoCards = data.filter(c => c.Type === '情緒').sort(() => Math.random() - 0.5).slice(0, 4);
-                        const pairs = [];
-                        emoCards.forEach(e => {
-                            const state = data.find(s => s.CardID == e.MatchID);
-                            if (state) {
-                                const base = { isMatched: false, isFlipped: isZenMode.value };
-                                pairs.push({...e, ...base}, {...state, ...base});
-                            }
-                        });
-                        for (let i = pairs.length - 1; i > 0; i--) {
-                            const j = Math.floor(Math.random() * (i + 1));
-                            [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
-                        }
-                        gameCards.value = pairs;
-                    } catch (e) { alert('連線失敗，請檢查網路或 GAS 網址'); }
+                        allData.value = await res.json();
+                        // 取得不重複的事件清單
+                        availableEvents.value = [...new Set(allData.value.map(c => c.SubCategory))];
+                    } catch (e) { alert('載入失敗'); }
                     loading.value = false;
                 };
 
-                const toggleZen = () => {
-                    isZenMode.value = !isZenMode.value;
-                    gameCards.value.forEach(c => { if(!c.isMatched) c.isFlipped = isZenMode.value; });
+                const selectEvent = (evt) => {
+                    currentEvent.value = evt;
+                    // 只過濾出選中事件的卡片
+                    const eventCards = allData.value.filter(c => c.SubCategory === evt);
+                    gameCards.value = eventCards.map(c => ({...c, isMatched: false, isFlipped: true}))
+                                                .sort(() => Math.random() - 0.5);
+                    step.value = 'game';
+                };
+
+                const goBack = () => {
+                    if (step.value === 'scene') step.value = 'target';
+                    else if (step.value === 'event') step.value = 'scene';
+                    else if (step.value === 'game') step.value = 'event';
                 };
 
                 const handleFlip = (card) => {
                     if (card.isMatched || flippedCards.value.includes(card) || flippedCards.value.length >= 2) return;
-                    if (!isZenMode.value) card.isFlipped = true;
                     flippedCards.value.push(card);
-
                     if (flippedCards.value.length === 2) {
                         const [c1, c2] = flippedCards.value;
                         if (c1.MatchID == c2.CardID || c2.MatchID == c1.CardID) {
@@ -249,53 +202,32 @@
                                 matchedPair.value = { 
                                     emotion: c1.Type === '情緒' ? c1.Content : c2.Content,
                                     state: c1.Type === '狀態' ? c1.Content : c2.Content,
-                                    event: c1.SubCategory
+                                    event: currentEvent.value
                                 };
                                 showInsight.value = true;
                                 flippedCards.value = [];
                             }, 500);
                         } else {
-                            setTimeout(() => {
-                                if (!isZenMode.value) { c1.isFlipped = c2.isFlipped = false; }
-                                flippedCards.value = [];
-                            }, 1000);
+                            setTimeout(() => { flippedCards.value = []; }, 800);
                         }
                     }
                 };
 
                 const saveNote = async () => {
-                    isSaving.value = true;
-                    const noteContent = userNote.value;
-                    // 加入本局報表
-                    sessionLogs.value.push({
-                        ...matchedPair.value,
-                        note: noteContent
-                    });
-                    
-                    try {
-                        await fetch(GAS_URL, {
-                            method: 'POST', mode: 'no-cors',
-                            body: JSON.stringify({
-                                target: currentTarget.value, scene: currentScene.value,
-                                category: matchedPair.value.event,
-                                content: matchedPair.value.emotion, note: noteContent
-                            })
-                        });
-                    } finally {
-                        userNote.value = ""; isSaving.value = false; showInsight.value = false;
-                    }
+                    sessionLogs.value.push({ ...matchedPair.value, note: userNote.value });
+                    // 背景傳送到 GAS
+                    fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({
+                        target: currentTarget.value, scene: currentScene.value,
+                        category: currentEvent.value, content: matchedPair.value.emotion, note: userNote.value
+                    })});
+                    userNote.value = ""; showInsight.value = false;
                 };
 
-                const resetToStart = () => { 
-                    step.value = 'target'; 
-                    gameCards.value = []; 
-                    sessionLogs.value = [];
-                };
+                const resetToStart = () => { step.value = 'target'; gameCards.value = []; sessionLogs.value = []; };
 
-                return { step, currentTarget, currentScene, currentSceneOptions, currentSceneLabel, selectTarget, selectScene, goBack, loading, gameCards, isZenMode, toggleZen, handleFlip, flippedCards, isWin, showInsight, activeInsight, userNote, isSaving, saveNote, resetToStart, notePlaceholder, sessionLogs };
+                return { step, currentTarget, currentScene, currentSceneOptions, selectTarget, selectScene, availableEvents, selectEvent, goBack, loading, gameCards, handleFlip, flippedCards, isWin, showInsight, activeInsight, userNote, saveNote, resetToStart, sessionLogs, currentEvent };
             }
         }).mount('#app');
     </script>
 </body>
 </html>
-
