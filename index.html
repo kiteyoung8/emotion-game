@@ -26,7 +26,7 @@
 <body class="bg-slate-50 min-h-screen text-slate-800 font-sans">
     <div id="app" v-cloak class="max-w-4xl mx-auto p-4 md:p-10">
         
-        <header class="mb-8 text-center no-print" v-if="step !== 'target' && !isWin">
+        <header class="mb-8 text-center no-print" v-if="step !== 'target' && step !== 'report'">
             <button @click="goBack" class="text-indigo-500 text-sm font-bold hover:underline mb-2">← 返回上一層</button>
             <div class="flex justify-center gap-2">
                 <div v-for="s in ['target', 'scene', 'event', 'game']" :key="s" 
@@ -86,7 +86,7 @@
                 </div>
             </section>
 
-            <section v-else-if="step === 'game' && !isWin" key="game">
+            <section v-else-if="step === 'game'" key="game">
                 <div class="text-center mb-8">
                     <div class="inline-block bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full mb-2">當前事件</div>
                     <h2 class="text-2xl font-black text-slate-800 leading-tight">{{ currentEvent }}</h2>
@@ -103,7 +103,7 @@
                     </button>
                 </div>
 
-                <div class="flex flex-wrap justify-center gap-4">
+                <div class="flex flex-wrap justify-center gap-4 mb-20">
                     <div v-for="(card, i) in gameCards" :key="i" 
                          class="relative h-44 w-[45%] md:w-48" 
                          @click="handleFlip(card)">
@@ -128,9 +128,19 @@
                         </div>
                     </div>
                 </div>
+
+                <div v-if="sessionLogs.length > 0" class="fixed bottom-6 left-0 w-full text-center px-4 no-print z-40">
+                    <div class="max-w-md mx-auto bg-white/90 backdrop-blur border border-slate-200 shadow-xl rounded-full p-2 flex items-center justify-between pl-6 pr-2">
+                        <span class="text-xs text-slate-500 font-bold">已完成 {{ sessionLogs.length }} 組覺察</span>
+                        <button @click="finishGameEarly" class="bg-slate-800 hover:bg-black text-white text-sm font-bold px-6 py-3 rounded-full transition shadow-lg flex items-center gap-2">
+                            <span>前往分析報表</span>
+                            <span>→</span>
+                        </button>
+                    </div>
+                </div>
             </section>
 
-            <section v-else-if="isWin" key="report" class="bg-white rounded-[2rem] shadow-2xl border border-indigo-50 overflow-hidden">
+            <section v-else-if="step === 'report'" key="report" class="bg-white rounded-[2rem] shadow-2xl border border-indigo-50 overflow-hidden">
                 <div class="bg-slate-900 p-8 text-center text-white">
                     <div class="text-5xl mb-4">🎉</div>
                     <h2 class="text-3xl font-black mb-1">身心覺察分析報表</h2>
@@ -152,6 +162,10 @@
                     <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
                         <span class="w-1 h-5 bg-indigo-500 rounded-full"></span> 辨識結果紀錄
                     </h3>
+
+                    <div v-if="sessionLogs.length === 0" class="text-center py-10 text-slate-400 bg-slate-50 rounded-xl">
+                        您本次尚未進行任何配對紀錄。
+                    </div>
 
                     <div class="space-y-6 mb-10">
                         <div v-for="(log, idx) in sessionLogs" :key="idx" class="border-b border-slate-100 pb-6 last:border-0">
@@ -205,9 +219,9 @@
     </div>
 
     <script>
-        const { createApp, ref, computed } = Vue;
+        const { createApp, ref, computed, watch } = Vue;
         
-        // 🔹 你的 Google Apps Script 部署網址
+        // 🔹 已填入您的 GAS 部署網址
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCIZDMsxzGhduSqzdK8-xGWA9N178aWPsftCwLhP2KrRNB6-QCNo4krtEsASAwj7hKGw/exec'; 
 
         createApp({
@@ -218,16 +232,14 @@
                 const currentScene = ref('');
                 const currentEvent = ref('');
                 const loading = ref(false);
-                const allData = ref([]); // 緩存該場景所有資料
-                const availableEvents = ref([]); // 該場景下的具體事件清單
+                const allData = ref([]); 
+                const availableEvents = ref([]); 
                 
-                // 遊戲相關
                 const gameCards = ref([]);
                 const flippedCards = ref([]);
-                const sessionLogs = ref([]); // 本局的覺察紀錄
+                const sessionLogs = ref([]); 
                 const isZenMode = ref(false);
                 
-                // Modal 相關
                 const showInsight = ref(false);
                 const activeInsight = ref('');
                 const activeCard = ref(null);
@@ -235,9 +247,6 @@
                 const userNote = ref('');
                 const isSaving = ref(false);
 
-                // 計算屬性
-                const isWin = computed(() => gameCards.value.length > 0 && gameCards.value.every(c => c.isMatched));
-                
                 // 場景設定
                 const sceneOptions = {
                     Student: [
@@ -255,6 +264,7 @@
                     const s = currentSceneOptions.value.find(x => x.id === currentScene.value);
                     return s ? s.label : currentScene.value;
                 });
+                const isWin = computed(() => gameCards.value.length > 0 && gameCards.value.every(c => c.isMatched));
 
                 // --- 流程控制 ---
 
@@ -263,7 +273,6 @@
                     step.value = 'scene'; 
                 };
                 
-                // 選場景後，立刻抓取資料
                 const selectScene = async (s) => { 
                     currentScene.value = s; 
                     step.value = 'event'; 
@@ -272,24 +281,18 @@
                         const res = await fetch(`${GAS_URL}?target=${currentTarget.value}&scene=${currentScene.value}`);
                         const data = await res.json();
                         allData.value = data;
-                        // 提取不重複的 SubCategory (具體事件)
-                        // 使用 Set 去重
                         availableEvents.value = [...new Set(data.map(c => c.SubCategory))];
                     } catch (e) { 
-                        alert('資料讀取失敗，請檢查 GAS 部署是否正確');
                         console.error(e);
+                        alert('讀取失敗，請確認 GAS 部署權限設定為 Anyone');
                     }
                     loading.value = false;
                 };
 
-                // 選事件後，過濾出該事件的所有卡片 (支援多重路徑)
                 const selectEvent = (evt) => {
                     currentEvent.value = evt;
-                    // 過濾出 SubCategory 完全符合的卡片
                     const targetCards = allData.value.filter(c => c.SubCategory === evt);
                     
-                    // 初始化卡片狀態
-                    // 如果是 ZenMode，預設就翻開
                     const cards = targetCards.map(c => ({
                         ...c, 
                         isMatched: false, 
@@ -316,32 +319,25 @@
 
                 const toggleZen = () => {
                     isZenMode.value = !isZenMode.value;
-                    // 只翻開尚未配對的卡片
                     gameCards.value.forEach(c => {
                         if (!c.isMatched) c.isFlipped = isZenMode.value;
                     });
                 };
 
                 const handleFlip = (card) => {
-                    // 如果已配對、或已翻開(且不在Zen模式)、或翻了兩張，則不動作
                     if (card.isMatched || flippedCards.value.includes(card) || flippedCards.value.length >= 2) return;
                     
-                    // 非 Zen 模式才需要手動翻
                     if (!isZenMode.value) card.isFlipped = true;
-                    
                     flippedCards.value.push(card);
 
-                    // 檢查配對
                     if (flippedCards.value.length === 2) {
                         const [c1, c2] = flippedCards.value;
-                        // 檢查 MatchID 是否互通
                         if (c1.MatchID == c2.CardID || c2.MatchID == c1.CardID) {
                             setTimeout(() => {
                                 c1.isMatched = c2.isMatched = true;
                                 activeInsight.value = c1.Insight || c2.Insight || "很棒的覺察！";
                                 activeCard.value = c1;
                                 
-                                // 暫存配對資訊，準備顯示 Modal
                                 matchedPair.value = { 
                                     emotion: c1.Type === '情緒' ? c1.Content : c2.Content,
                                     state: c1.Type === '狀態' ? c1.Content : c2.Content,
@@ -352,7 +348,6 @@
                                 flippedCards.value = [];
                             }, 500);
                         } else {
-                            // 配對失敗，翻回去
                             setTimeout(() => {
                                 if (!isZenMode.value) { 
                                     c1.isFlipped = false; 
@@ -366,13 +361,11 @@
 
                 const saveNote = async () => {
                     isSaving.value = true;
-                    // 1. 推入本局 Log
                     sessionLogs.value.push({ 
                         ...matchedPair.value, 
                         note: userNote.value 
                     });
                     
-                    // 2. 背景傳送至 Google Sheets
                     try {
                         await fetch(GAS_URL, { 
                             method: 'POST', 
@@ -381,19 +374,30 @@
                                 target: currentTarget.value, 
                                 scene: currentScene.value,
                                 category: currentEvent.value, 
-                                content: matchedPair.value.emotion, // 這裡只傳情緒當代表
+                                content: matchedPair.value.emotion,
                                 note: userNote.value
                             })
                         });
-                    } catch (e) {
-                        console.log("Logged locally");
-                    }
+                    } catch (e) {}
 
-                    // 3. 清理與關閉
                     userNote.value = ""; 
                     isSaving.value = false; 
                     showInsight.value = false;
                 };
+
+                // 🚀 新增功能：手動提早結束
+                const finishGameEarly = () => {
+                    step.value = 'report';
+                };
+
+                // 自動跳轉監聽
+                watch(gameCards, () => {
+                    if (gameCards.value.length > 0 && gameCards.value.every(c => c.isMatched)) {
+                        setTimeout(() => {
+                            step.value = 'report';
+                        }, 1200);
+                    }
+                }, { deep: true });
 
                 const resetToStart = () => { 
                     step.value = 'target'; 
@@ -408,7 +412,7 @@
                     selectTarget, selectScene, selectEvent, availableEvents, goBack, 
                     loading, gameCards, isZenMode, toggleZen, handleFlip, flippedCards, 
                     isWin, showInsight, activeInsight, userNote, isSaving, saveNote, 
-                    resetToStart, sessionLogs 
+                    resetToStart, sessionLogs, finishGameEarly
                 };
             }
         }).mount('#app');
